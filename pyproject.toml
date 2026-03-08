@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hypothesis-engine"
+version = "1.0.0"
+description = "A procedurally-generated scientific discovery RL environment for training LLM reasoning"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "Hypothesis Engine Team"},
+]
+keywords = [
+    "reinforcement-learning",
+    "rl-environment",
+    "llm-training",
+    "scientific-reasoning",
+    "gymnasium",
+    "hypothesis-testing",
+    "procedural-generation",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy>=1.24.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+gymnasium = ["gymnasium>=0.29.0"]
+llm = ["openai>=1.0.0"]
+all = ["gymnasium>=0.29.0", "openai>=1.0.0"]
+dev = ["pytest", "gymnasium>=0.29.0", "openai>=1.0.0"]
+
+[project.urls]
+Homepage = "https://github.com/hypothesis-engine/hypothesis-engine"
+Documentation = "https://github.com/hypothesis-engine/hypothesis-engine#readme"
+Issues = "https://github.com/hypothesis-engine/hypothesis-engine/issues"
+
+[tool.setuptools.packages.find]
+include = ["hypothesis_engine*"]
