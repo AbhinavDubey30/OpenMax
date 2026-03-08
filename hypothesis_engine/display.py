@@ -70,7 +70,7 @@ class Display:
 
         panel = Panel(
             banner_text,
-            title="[bold white]v1.0[/]",
+            title="[bold white]v2.0[/]",
             subtitle="[dim]Scientific Discovery RL Environment[/]",
             border_style="bright_cyan",
             box=box.DOUBLE,
@@ -188,21 +188,29 @@ class Display:
         self.console.print(panel)
         self._pause(0.5)
 
-    def show_experiment(self, exp_num: int, inputs: Dict, output: Any, reasoning: str = ""):
+    def show_experiment(self, exp_num: int, inputs: Dict, output: Any, reasoning: str = "", mode: str = "observe"):
         """Display a single experiment result."""
         if not HAS_RICH:
             input_str = ", ".join(f"{k}={v}" for k, v in inputs.items())
-            print(f"  Exp #{exp_num}: [{input_str}] → y = {output}  {reasoning}")
+            mode_tag = f" [{mode.upper()}]" if mode != "observe" else ""
+            print(f"  Exp #{exp_num}: [{input_str}]{mode_tag} -> y = {output}  {reasoning}")
             return
 
         exp_text = Text()
-        exp_text.append(f"  Experiment #{exp_num:>2d}  |  ", style="bold")
+        exp_text.append(f"  Experiment #{exp_num:>2d}  ", style="bold")
+
+        # Show mode tag for causal worlds
+        if mode == "intervene":
+            exp_text.append("[INTERVENE]", style="bold bright_red")
+        elif mode == "observe":
+            exp_text.append("[OBSERVE]  ", style="bold bright_blue")
+        exp_text.append("  |  ", style="bold")
 
         for k, v in inputs.items():
             exp_text.append(f"{k}", style="bold bright_green")
             exp_text.append(f"={v:<8}  ", style="white")
 
-        exp_text.append("→  ", style="dim")
+        exp_text.append("->  ", style="dim")
         exp_text.append("y = ", style="bold")
 
         if output is not None:
@@ -211,7 +219,7 @@ class Display:
             exp_text.append("ERROR", style="bold red")
 
         if reasoning:
-            exp_text.append(f"  │  {reasoning}", style="italic dim")
+            exp_text.append(f"  |  {reasoning}", style="italic dim")
 
         self.console.print(exp_text)
         self._pause()

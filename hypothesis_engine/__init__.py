@@ -29,7 +29,7 @@ Quick Start:
     })
 """
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 __author__ = "Hypothesis Engine Team"
 
 from .env import HypothesisEngine
@@ -38,6 +38,7 @@ from .verifier import HypothesisVerifier, SafeMathEvaluator
 from .rewards import RewardCalculator, RewardWeights, EpisodeMetrics
 from .curriculum import CurriculumController
 from .gym_wrapper import HypothesisEngineGymEnv, make_env
+from .self_play import SelfPlayOrchestrator, ProceduralSelfPlay, WorldValidator
 
 __all__ = [
     "HypothesisEngine",
@@ -51,4 +52,7 @@ __all__ = [
     "RewardWeights",
     "EpisodeMetrics",
     "CurriculumController",
+    "SelfPlayOrchestrator",
+    "ProceduralSelfPlay",
+    "WorldValidator",
 ]

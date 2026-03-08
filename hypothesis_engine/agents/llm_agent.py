@@ -18,8 +18,8 @@ except ImportError:
     HAS_OPENAI = False
 
 
-SYSTEM_PROMPT = """You are a brilliant scientist investigating an unknown system. 
-Your goal is to discover the hidden mathematical relationship between inputs and outputs 
+SYSTEM_PROMPT = """You are a brilliant scientist investigating an unknown system.
+Your goal is to discover the hidden mathematical relationship between inputs and outputs
 through careful experimentation, hypothesis formation, and prediction.
 
 ## Your Investigation Tools
@@ -28,6 +28,13 @@ You can take these actions (respond with EXACTLY one JSON action per turn):
 
 1. **Run an Experiment**: Test specific input values
    {"action": "experiment", "inputs": {"x": 3.0}}
+   
+   CAUSAL MODE: Some worlds support interventions for causal discovery.
+   - Observe (default): {"action": "experiment", "inputs": {"x": 3.0}, "mode": "observe"}
+   - Intervene: {"action": "experiment", "inputs": {"x": 3.0}, "mode": "intervene"}
+   In 'observe' mode, correlations may be confounded by hidden variables.
+   In 'intervene' mode, you force X to a value, breaking upstream causal links.
+   If observe and intervene give DIFFERENT results at the same input, a confounder exists!
    
 2. **Submit a Hypothesis**: State your mathematical model
    {"action": "hypothesize", "expression": "2*x + 3"}
@@ -40,17 +47,31 @@ You can take these actions (respond with EXACTLY one JSON action per turn):
 4. **Get Hint**: Get a hint (small penalty)
    {"action": "get_hint"}
 
+## World Types You May Encounter
+
+- **Function Discovery**: Find hidden mathematical functions (linear, polynomial, etc.)
+- **Causal Reasoning**: Discover causal relationships using observe vs. intervene.
+  CRITICAL: Correlation != Causation. Use interventions to find true effects!
+- **Physics Simulation**: Discover physical laws (springs, projectile motion).
+  Think about dimensional analysis and known physics equations.
+- **State Machine**: The system has hidden internal states that change with each experiment.
+  The same input can give different outputs! Track order carefully.
+- **Stochastic**: The system has HIGH noise. Run each input 3-5 times and AVERAGE results.
+  A single measurement is unreliable!
+
 ## Strategy Guidelines
 
 1. START by running strategic experiments (probe key points like 0, 1, -1, etc.)
 2. ANALYZE patterns: Is it linear? Quadratic? Conditional? Are there interactions?
-3. HYPOTHESIZE: Form a mathematical expression that fits the data
-4. TEST your hypothesis with a few more experiments
-5. REFINE if needed
-6. PREDICT only when confident
+3. For CAUSAL worlds: run paired observe/intervene experiments to detect confounders
+4. For STOCHASTIC worlds: repeat experiments and average
+5. HYPOTHESIZE: Form a mathematical expression that fits the data
+6. TEST your hypothesis with a few more experiments
+7. REFINE if needed
+8. PREDICT only when confident
 
 ## Important Rules
-- You have a LIMITED experiment budget — don't waste experiments
+- You have a LIMITED experiment budget -- don't waste experiments
 - For multi-variable systems, isolate variables (change one at a time)
 - Watch for conditional/piecewise behavior (sudden changes)
 - Noisy systems require repeated measurements to find the signal
@@ -149,6 +170,11 @@ class LLMScientist(BaseAgent):
             parts.append(f"Description: {world.get('description', '')}")
             parts.append(f"Variables: {world.get('variables', [])}")
             parts.append(f"Ranges: {world.get('variable_ranges', {})}")
+            if world.get("world_type"):
+                parts.append(f"World Type: {world.get('world_type')}")
+            if world.get("supports_intervention"):
+                parts.append("CAUSAL WORLD: Supports 'observe' and 'intervene' modes!")
+                parts.append("Use mode='intervene' to break causal links and find true effects.")
             if world.get("is_stateful"):
                 parts.append("WARNING: This system has MEMORY -- order of experiments matters!")
 

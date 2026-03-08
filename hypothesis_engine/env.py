@@ -1,5 +1,5 @@
 """
-Hypothesis Engine — Main RL Environment.
+Hypothesis Engine -- Main RL Environment.
 
 A gym-like reinforcement learning environment for training LLMs on
 scientific reasoning and hypothesis testing through experimentation
@@ -12,6 +12,7 @@ Interface:
 
 Actions:
     {"action": "experiment", "inputs": {"x": 3.0}}
+    {"action": "experiment", "inputs": {"x": 3.0}, "mode": "intervene"}
     {"action": "hypothesize", "expression": "2*x + 3"}
     {"action": "predict", "predictions": [9.0, -5.0, ...]}
     {"action": "get_status"}
@@ -35,6 +36,13 @@ class HypothesisEngine:
         1. EXPLORATION phase: Agent runs experiments and submits hypotheses
         2. PREDICTION phase: Agent submits predictions for held-out test cases
         3. Episode ends, final reward is computed
+    
+    Novel Features:
+        - Causal worlds with OBSERVE vs INTERVENE experiment modes
+        - Physics simulations
+        - State machines
+        - Stochastic systems requiring statistical reasoning
+        - Self-play world generation
     """
 
     VALID_ACTIONS = {"experiment", "hypothesize", "predict", "get_status", "get_hint"}
@@ -46,6 +54,7 @@ class HypothesisEngine:
         seed: Optional[int] = None,
         auto_curriculum: bool = False,
         advance_threshold: float = 65.0,
+        use_self_play: bool = False,
     ):
         """
         Initialize the Hypothesis Engine environment.
@@ -56,11 +65,13 @@ class HypothesisEngine:
             seed: Random seed for reproducibility.
             auto_curriculum: Enable automatic difficulty progression.
             advance_threshold: Score needed to advance to next level.
+            use_self_play: Use procedural self-play for world generation.
         """
         self.initial_difficulty = difficulty
         self.experiment_budget = experiment_budget
         self.seed = seed
         self.auto_curriculum = auto_curriculum
+        self.use_self_play = use_self_play
         self._seed_counter = seed if seed is not None else 0
 
         self.verifier = HypothesisVerifier()
@@ -70,6 +81,12 @@ class HypothesisEngine:
             start_difficulty=difficulty,
             advance_threshold=advance_threshold,
         ) if auto_curriculum else None
+
+        # Self-play generator (procedural, no API key needed)
+        self.self_play = None
+        if use_self_play:
+            from .self_play import ProceduralSelfPlay
+            self.self_play = ProceduralSelfPlay(seed=seed or 42)
 
         # Episode state
         self.world: Optional[World] = None
@@ -91,7 +108,9 @@ class HypothesisEngine:
             Initial observation dict with world briefing.
         """
         # Determine difficulty
-        if self.auto_curriculum and self.curriculum:
+        if self.use_self_play and self.self_play:
+            difficulty = self.self_play.get_next_difficulty()
+        elif self.auto_curriculum and self.curriculum:
             difficulty = self.curriculum.get_next_difficulty()
         else:
             difficulty = self.initial_difficulty
@@ -104,7 +123,13 @@ class HypothesisEngine:
             self._seed_counter += 1
 
         # Generate world
-        self.world = WorldGenerator.generate(difficulty, seed=ep_seed)
+        if self.use_self_play and self.self_play:
+            self.world = self.self_play.generate_world(difficulty)
+            if self.world is None:
+                # Fallback to standard generation
+                self.world = WorldGenerator.generate(difficulty, seed=ep_seed)
+        else:
+            self.world = WorldGenerator.generate(difficulty, seed=ep_seed)
         self.world.generate_test_cases(20)
 
         # Reset episode state
@@ -168,10 +193,10 @@ class HypothesisEngine:
 
         return ({"error": "Unexpected error"}, 0.0, False, {})
 
-    # ── Action Handlers ──────────────────────────────────────────────────
+    # -- Action Handlers ---------------------------------------------------
 
     def _handle_experiment(self, action: Dict) -> tuple:
-        """Run an experiment."""
+        """Run an experiment (supports observe/intervene modes)."""
         if self.phase != "exploration":
             return (
                 {"error": "Experiments can only be run during exploration phase."},
@@ -200,7 +225,16 @@ class HypothesisEngine:
                 {},
             )
 
-        result = self.world.run_experiment(inputs)
+        # NEW: Support observe/intervene modes for causal worlds
+        mode = action.get("mode", "observe")
+        intervention_targets = action.get("intervention_targets", None)
+
+        if mode == "intervene" and not self.world.supports_intervention:
+            mode = "observe"  # Fall back silently for non-causal worlds
+
+        result = self.world.run_experiment(
+            inputs, mode=mode, intervention_targets=intervention_targets
+        )
         self.experiments_remaining -= 1
         self.metrics.experiments_used += 1
 
@@ -278,7 +312,7 @@ class HypothesisEngine:
         return (obs, reward, False, {"hypothesis_score": score, "verification": verification})
 
     def _handle_predict(self, action: Dict) -> tuple:
-        """Submit predictions for test cases — ends the episode."""
+        """Submit predictions for test cases -- ends the episode."""
         predictions = action.get("predictions", [])
         test_cases = self.world.test_cases
 
@@ -319,6 +353,10 @@ class HypothesisEngine:
                 passed=passed,
             ))
 
+        # Record for self-play
+        if self.use_self_play and self.self_play:
+            self.self_play.record_solver_score(final_reward_info["total_reward"])
+
         obs = self._get_observation(
             message="Episode complete! Final results computed.",
             final_results={
@@ -355,7 +393,7 @@ class HypothesisEngine:
         obs = self._get_observation(message=f"Hint: {hint}")
         return (obs, -0.02, False, {"hint": hint})
 
-    # ── Observation Builder ──────────────────────────────────────────────
+    # -- Observation Builder -----------------------------------------------
 
     def _get_observation(
         self,
@@ -400,21 +438,30 @@ class HypothesisEngine:
 
         return obs
 
-    # ── Utility ──────────────────────────────────────────────────────────
+    # -- Utility -----------------------------------------------------------
 
     def get_action_space_description(self) -> str:
         """Return a human-readable description of valid actions."""
-        return """
+        base = """
 Available Actions:
-─────────────────
+---
 1. EXPERIMENT: Run an experiment with specific input values.
    Format: {"action": "experiment", "inputs": {"x": 3.0}}
-   
+"""
+        if self.world and self.world.supports_intervention:
+            base += """
+   CAUSAL MODE: This world supports interventions!
+   - Observe:  {"action": "experiment", "inputs": {"x": 3.0}, "mode": "observe"}
+   - Intervene: {"action": "experiment", "inputs": {"x": 3.0}, "mode": "intervene"}
+   In 'observe' mode, you see natural correlations (may be confounded).
+   In 'intervene' mode, you force X to a value, breaking upstream causal links.
+"""
+        base += """
 2. HYPOTHESIZE: Submit a mathematical hypothesis about the system.
    Format: {"action": "hypothesize", "expression": "2*x + 3"}
    Supported: +, -, *, /, **, sin(), cos(), exp(), log(), sqrt(), abs()
    Conditionals: "value_if_true if x > 0 else value_if_false"
-   Or: "where(x > 0, x**2, -x)"
+   Or: "where(condition, true_val, false_val)"
    
 3. PREDICT: Submit predictions for all test cases (ends episode).
    Format: {"action": "predict", "predictions": [9.0, -5.0, ...]}
@@ -424,7 +471,8 @@ Available Actions:
    
 5. GET_HINT: Get a hint about the world (small reward penalty).
    Format: {"action": "get_hint"}
-""".strip()
+"""
+        return base.strip()
 
     def get_episode_summary(self) -> Dict[str, Any]:
         """Get a summary of the current/last episode."""
@@ -432,6 +480,7 @@ Available Actions:
             "episode": self.episode_count,
             "difficulty": self.world.difficulty if self.world else None,
             "world_name": self.world.name if self.world else None,
+            "world_type": self.world.world_type if self.world else None,
             "phase": self.phase,
             "experiments_used": len(self.experiment_history),
             "experiments_remaining": self.experiments_remaining,

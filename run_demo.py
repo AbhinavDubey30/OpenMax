@@ -54,13 +54,14 @@ def run_episode_with_agent(env, agent, display, level, episode_num=1):
 
         if action_type == "experiment":
             inputs = action.get("inputs", {})
+            mode = action.get("mode", "observe")
             display.show_agent_thinking(reasoning)
             obs, reward, done, info = env.step(action)
 
             result = info.get("experiment_result", {})
             output = result.get("output", "ERROR")
             exp_num = len(env.experiment_history)
-            display.show_experiment(exp_num, inputs, output)
+            display.show_experiment(exp_num, inputs, output, mode=mode)
 
         elif action_type == "hypothesize":
             expression = action.get("expression", "?")
@@ -341,6 +342,70 @@ def run_interactive(start_level=1, seed_base=42):
                     break
 
 
+def run_self_play_demo(rounds=5, seed=42):
+    """Run a self-play demo showing adaptive world generation."""
+    display = Display(slow_mode=True, delay=0.1)
+    display.show_banner()
+
+    display.show_info(
+        "SELF-PLAY MODE -- Adaptive World Generation",
+        style="bold bright_magenta"
+    )
+    display.show_info(
+        "The environment generates increasingly complex worlds as the agent improves.",
+        style="dim"
+    )
+    print()
+
+    env = HypothesisEngine(
+        difficulty=3,
+        experiment_budget=25,
+        seed=seed,
+        use_self_play=True,
+    )
+    agent = HeuristicScientist()
+    results = []
+
+    for round_num in range(1, rounds + 1):
+        agent.reset()
+        obs = env.reset()
+
+        world_briefing = obs.get("world", {})
+        display.show_episode_start(round_num, world_briefing.get("difficulty", 0), world_briefing)
+
+        done = False
+        step = 0
+        while not done and step < 40:
+            action, reasoning = agent.act(obs)
+            obs, reward, done, info = env.step(action)
+            step += 1
+
+        score = info.get("final_reward", {}).get("total_reward", 0) if done else 0
+        passed = info.get("passed", False) if done else False
+
+        results.append({
+            "level": world_briefing.get("difficulty", 0),
+            "score": score,
+            "passed": passed,
+            "ground_truth": info.get("ground_truth_expr", "?") if done else "?",
+            "hypothesis": env.hypothesis_history[-1]["expression"] if env.hypothesis_history else None,
+        })
+
+        status = "PASS" if passed else "FAIL"
+        display.show_info(
+            f"Round {round_num}: Score {score:.1f}/100 [{status}]",
+            style="bold bright_white"
+        )
+        print()
+
+    display.show_info(
+        f"Self-play complete! {rounds} rounds, "
+        f"{sum(1 for r in results if r['passed'])}/{rounds} passed.",
+        style="bold bright_cyan"
+    )
+    show_summary(display, results)
+
+
 def show_summary(display, results):
     """Show a summary of all results."""
     display.show_phase_header("Session Summary")
@@ -422,6 +487,7 @@ Examples:
     parser.add_argument("--interactive", action="store_true", help="Interactive mode")
     parser.add_argument("--llm", action="store_true", help="Use LLM agent")
     parser.add_argument("--benchmark", action="store_true", help="Full benchmark (all 10 levels)")
+    parser.add_argument("--self-play", action="store_true", help="Self-play adaptive world generation demo")
     parser.add_argument("--level", type=int, default=1, help="Starting difficulty level (1-10)")
     parser.add_argument("--model", type=str, default="gpt-4o-mini", help="LLM model to use")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
@@ -438,6 +504,8 @@ Examples:
         run_llm_demo(start_level=args.level, model=args.model, seed_base=args.seed)
     elif args.benchmark:
         run_auto_demo(levels=list(range(1, 11)), seed_base=args.seed)
+    elif getattr(args, 'self_play', False):
+        run_self_play_demo(rounds=5, seed=args.seed)
     else:
         # Interactive menu
         display = Display()
