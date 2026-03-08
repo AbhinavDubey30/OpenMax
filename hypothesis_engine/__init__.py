@@ -39,10 +39,22 @@ from .rewards import RewardCalculator, RewardWeights, EpisodeMetrics
 from .curriculum import CurriculumController
 from .gym_wrapper import HypothesisEngineGymEnv, make_env
 from .self_play import SelfPlayOrchestrator, ProceduralSelfPlay, WorldValidator
+from .openenv_wrapper import (
+    HypothesisEngineOpenEnv,
+    HypothesisAction,
+    HypothesisObservation,
+    HypothesisState,
+    create_hypothesis_app,
+)
 
 __all__ = [
     "HypothesisEngine",
     "HypothesisEngineGymEnv",
+    "HypothesisEngineOpenEnv",
+    "HypothesisAction",
+    "HypothesisObservation",
+    "HypothesisState",
+    "create_hypothesis_app",
     "make_env",
     "WorldGenerator",
     "World",

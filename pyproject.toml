@@ -39,12 +39,14 @@ classifiers = [
 dependencies = [
     "numpy>=1.24.0",
     "rich>=13.0.0",
+    "openenv-core>=0.2.1",
 ]
 
 [project.optional-dependencies]
 gymnasium = ["gymnasium>=0.29.0"]
 llm = ["openai>=1.0.0"]
-all = ["gymnasium>=0.29.0", "openai>=1.0.0"]
+training = ["trl>=0.12.0", "unsloth", "transformers", "datasets"]
+all = ["gymnasium>=0.29.0", "openai>=1.0.0", "openenv-core>=0.2.1"]
 dev = ["pytest", "gymnasium>=0.29.0", "openai>=1.0.0"]
 
 [project.urls]
