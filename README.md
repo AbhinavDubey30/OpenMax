@@ -1,3 +1,13 @@
+---
+title: Hypothesis Engine
+emoji: 🔬
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Hypothesis Engine
 
 **A procedurally-generated RL environment for training LLMs on scientific reasoning through causal discovery, physics simulation, state machine reverse-engineering, and adversarial self-play.**

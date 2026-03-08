@@ -27,3 +27,13 @@ Thumbs.db
 
 # Test outputs
 test_output.txt
+
+# Training artifacts (don't push to HF Space)
+hypothesis_engine_grpo/
+hypothesis_scientist_lora/
+training_results.png
+*.ckpt
+*.safetensors
+
+# Notebook checkpoints
+.ipynb_checkpoints/
