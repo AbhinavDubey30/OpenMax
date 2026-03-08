@@ -37,3 +37,6 @@ training_results.png
 
 # Notebook checkpoints
 .ipynb_checkpoints/
+
+# Binary files (HF Spaces rejects these without LFS)
+*.pdf
